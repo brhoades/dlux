@@ -50,7 +50,7 @@ struct GeoSettings {
 }
 
 fn get_start_stop(geo: &GeoOpts) -> GeoSettings {
-    let (start, end) = sun_times::sun_times(Utc::now().date(), geo.lat, geo.long, geo.height);
+    let (start, end) = sun_times::sun_times(Local::now().date().with_timezone(&Utc), geo.lat, geo.long, geo.height);
     GeoSettings{
         start,
         end,
@@ -59,7 +59,7 @@ fn get_start_stop(geo: &GeoOpts) -> GeoSettings {
 
 fn main() -> Result<(), Error> {
     let opts = Opts::from_args();
-    let mut last_date = Utc::now().date();
+    let mut last_date = Local::now().date();
     let mut geo = get_start_stop(&opts.geo);
     let mut devs = ddc_i2c::I2cDeviceEnumerator::new()?.map(|mut i| {
         match i.get_vcp_feature(0x10) {
@@ -76,12 +76,13 @@ fn main() -> Result<(), Error> {
         geo.start.with_timezone(&Local),
         geo.end.with_timezone(&Local),
     );
+    println!("dt: {}", last_date);
     println!("found {} devices, beginning loop", devs.len());
 
     loop {
         let now = Utc::now();
-        if last_date != now.date() {
-            last_date = now.date();
+        if last_date != Local::now().date() {
+            last_date = Local::now().date();
             geo = get_start_stop(&opts.geo);
             println!(
                 "sunrise at {}, sunset at {}",
