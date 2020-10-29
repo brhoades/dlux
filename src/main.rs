@@ -50,7 +50,8 @@ struct GeoSettings {
 }
 
 fn get_start_stop(geo: &GeoOpts) -> GeoSettings {
-    let (start, end) = sun_times::sun_times(Local::now().date().with_timezone(&Utc), geo.lat, geo.long, geo.height);
+    let today = Local::now().date().with_timezone(&Utc);
+    let (start, end) = sun_times::sun_times(today, geo.lat, geo.long, geo.height);
     GeoSettings{
         start,
         end,
@@ -61,15 +62,7 @@ fn main() -> Result<(), Error> {
     let opts = Opts::from_args();
     let mut last_date = Local::now().date();
     let mut geo = get_start_stop(&opts.geo);
-    let mut devs = ddc_i2c::I2cDeviceEnumerator::new()?.map(|mut i| {
-        match i.get_vcp_feature(0x10) {
-            Ok(_) => Some(i),
-            Err(_) => None,
-        }
-    })
-        .filter(Option::is_some)
-        .map(Option::unwrap)
-        .collect::<Vec<_>>();
+    let mut disps = Displays::new()?;
 
     println!(
         "sunrise at {}, sunset at {}",
@@ -77,7 +70,7 @@ fn main() -> Result<(), Error> {
         geo.end.with_timezone(&Local),
     );
     println!("dt: {}", last_date);
-    println!("found {} devices, beginning loop", devs.len());
+    println!("found {} devices, beginning loop", disps.len());
 
     loop {
         let now = Utc::now();
@@ -91,7 +84,7 @@ fn main() -> Result<(), Error> {
             );
         }
 
-        for d in &mut devs {
+        for d in &mut disps.devs {
             let cap = match d.get_vcp_feature(0x10) {
                 Ok(cap) => cap,
                 Err(e) => {
@@ -118,3 +111,28 @@ fn main() -> Result<(), Error> {
     }
 }
 
+
+
+struct Displays {
+    pub devs: Vec<ddc_i2c::I2cDdc<i2c_linux::I2c<std::fs::File>>>,
+}
+
+impl Displays {
+    fn new() -> Result<Self, Error> {
+        let mut devs = ddc_i2c::I2cDeviceEnumerator::new()?.map(|mut i| {
+            match i.get_vcp_feature(0x10) {
+                Ok(_) => Some(i),
+                Err(_) => None,
+            }
+        })
+            .filter(Option::is_some)
+            .map(Option::unwrap)
+            .collect::<Vec<_>>();
+
+        Ok(Displays{devs})
+    }
+
+    fn len(&self) -> usize {
+        self.devs.len()
+    }
+}

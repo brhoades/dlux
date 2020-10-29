@@ -118,6 +118,7 @@ dependencies = [
  "ddc",
  "ddc-i2c",
  "failure",
+ "i2c-linux",
  "structopt",
  "sun-times",
 ]
