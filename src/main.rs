@@ -1,8 +1,9 @@
-use failure::Error;
-use structopt::StructOpt;
-use chrono::{DateTime, Utc, Duration, Local};
-
+use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
+use failure::{format_err, Error};
+use humantime::format_duration;
+use structopt::StructOpt;
+use tokio::time::sleep_until;
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -14,9 +15,8 @@ struct Opts {
 
     /// out of 100, the brightness to target for the screen
     #[structopt(short, long)]
-    brightness: u16
-
-    // /// fade in/out time at sunrise
+    brightness: u16,
+    // fade in/out time at sunrise
     // #[structopt(short, long)]
     // fade_time: chrono::Duration
 }
@@ -31,7 +31,6 @@ struct GeoOpts {
 
     #[structopt(long, default_value = "0.0")]
     height: f64,
-
 }
 
 #[derive(StructOpt, Debug)]
@@ -49,90 +48,101 @@ struct GeoSettings {
     end: DateTime<Utc>,
 }
 
-fn get_start_stop(geo: &GeoOpts) -> GeoSettings {
-    let today = Local::now().date().with_timezone(&Utc);
-    let (start, end) = sun_times::sun_times(today, geo.lat, geo.long, geo.height);
-    GeoSettings{
-        start,
-        end,
-    }
-}
-
-fn main() -> Result<(), Error> {
+#[tokio::main]
+async fn main() {
     let opts = Opts::from_args();
-    let mut last_date = Local::now().date();
-    let mut geo = get_start_stop(&opts.geo);
-    let mut disps = Displays::new()?;
+    let mut disps = Displays::new().unwrap();
 
-    println!(
-        "sunrise at {}, sunset at {}",
-        geo.start.with_timezone(&Local),
-        geo.end.with_timezone(&Local),
-    );
-    println!("dt: {}", last_date);
     println!("found {} devices, beginning loop", disps.len());
 
     loop {
-        let now = Utc::now();
-        if last_date != Local::now().date() {
-            last_date = Local::now().date();
-            geo = get_start_stop(&opts.geo);
-            println!(
-                "sunrise at {}, sunset at {}",
-                geo.start.with_timezone(&Local),
-                geo.end.with_timezone(&Local),
-            );
-        }
+        update_monitors_from_time(&mut disps, &opts);
 
-        for d in &mut disps.devs {
-            let cap = match d.get_vcp_feature(0x10) {
-                Ok(cap) => cap,
-                Err(e) => {
-                    println!("failed to query monitor: {}", e);
-                    continue;
-                }
-            };
+        let next_dt = get_next_event::<Local>(&opts.geo, Local::now());
+        let wait = (next_dt - Utc::now())
+            .to_std()
+            .unwrap_or(std::time::Duration::new(0, 0));
+        println!(
+            "Waiting {} until {}",
+            format_duration(wait),
+            next_dt.with_timezone(&Local)
+        );
 
-            let b = if now < geo.start || now > geo.end {
-                opts.brightness
-            } else {
-                100
-            };
-
-            if cap.value() != b {
-                match d.set_vcp_feature(0x10, b) {
-                    Ok(_) => println!("set brightness to {}", b),
-                    Err(e) => println!("failed to set to {}: {}", b, e),
-                }
-            }
-        }
-
-        std::thread::sleep(std::time::Duration::from_millis(60 * 1_000));
+        sleep_until(tokio::time::Instant::now() + wait).await;
+        println!("awake, time is now: {}", Local::now());
     }
 }
 
-
+type Devs = Vec<ddc_i2c::I2cDdc<i2c_linux::I2c<std::fs::File>>>;
 
 struct Displays {
-    pub devs: Vec<ddc_i2c::I2cDdc<i2c_linux::I2c<std::fs::File>>>,
+    pub devs: Devs,
 }
 
 impl Displays {
     fn new() -> Result<Self, Error> {
-        let mut devs = ddc_i2c::I2cDeviceEnumerator::new()?.map(|mut i| {
-            match i.get_vcp_feature(0x10) {
-                Ok(_) => Some(i),
-                Err(_) => None,
-            }
-        })
-            .filter(Option::is_some)
-            .map(Option::unwrap)
-            .collect::<Vec<_>>();
+        let devs = ddc_i2c::I2cDeviceEnumerator::new()?
+            .filter_map(|mut i| {
+                if i.get_vcp_feature(0x10).is_ok() {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .collect::<Devs>();
 
-        Ok(Displays{devs})
+        if devs.len() == 0 {
+            Err(format_err!("failed to retrieve supported devices"))
+        } else {
+            Ok(Displays { devs })
+        }
     }
 
-    fn len(&self) -> usize {
+    pub fn len(&self) -> usize {
         self.devs.len()
     }
+
+    // Idempotently set brightness to the passed value..
+    pub fn set_brightness(&mut self, b: u16) {
+        for d in &mut self.devs {
+            match d.set_vcp_feature(0x10, b) {
+                Ok(_) => println!("set brightness to {}", b),
+                Err(e) => println!("failed to set to {}: {}", b, e),
+            }
+        }
+    }
+}
+
+fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
+    let today = now.date().with_timezone(&Utc);
+    let geo = get_start_stop_at_date(opts, today);
+
+    let next = if now >= geo.end {
+        let tomorrow = today + Duration::days(1);
+        get_start_stop_at_date(opts, tomorrow).start
+    } else if now < geo.end {
+        geo.end
+    } else {
+        geo.start
+    };
+    next + Duration::milliseconds(100)
+}
+
+fn get_start_stop_at_date(geo: &GeoOpts, date: chrono::Date<Utc>) -> GeoSettings {
+    let (start, end) = sun_times::sun_times(date, geo.lat, geo.long, geo.height);
+    GeoSettings { start, end }
+}
+
+fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
+    let now = Utc::now();
+    let geo = get_start_stop_at_date(&opts.geo, now.date());
+
+    let b = if now < geo.start || now > geo.end {
+        opts.brightness
+    } else {
+        100
+    };
+
+    println!("updating brightness to {}", b);
+    disps.set_brightness(b);
 }

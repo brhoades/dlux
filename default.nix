@@ -7,7 +7,7 @@ in
   stdenv.mkDerivation {
     name = "rust";
     buildInputs = [
-      nixpkgs.latest.rustChannels.nightly.rust
+      # nixpkgs.latest.rustChannels.nightly.rust
       rustup
 
       pkgconfig openssl
