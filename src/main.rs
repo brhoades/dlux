@@ -1,9 +1,11 @@
+mod timer;
+
 use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
 use failure::{format_err, Error};
 use humantime::format_duration;
 use structopt::StructOpt;
-use tokio::time::sleep;
+use timer::AsyncTimer;
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -49,9 +51,10 @@ struct GeoSettings {
 }
 
 #[tokio::main]
-async fn main() {
+async fn main() -> Result<(), Error> {
     let opts = Opts::from_args();
     let mut disps = Displays::new().unwrap();
+    let mut timer = Box::new(AsyncTimer::new()?);
 
     println!("found {} devices, beginning loop", disps.len());
 
@@ -62,13 +65,14 @@ async fn main() {
         let wait = (next_dt - Utc::now())
             .to_std()
             .unwrap_or(std::time::Duration::new(0, 0));
+        timer.reset(next_dt)?;
         println!(
             "Waiting {} until {}",
             format_duration(wait),
             next_dt.with_timezone(&Local)
         );
 
-        wait_until(next_dt).unwrap();
+        timer.new_future()?.await?;
         println!("awake, time is now: {}", Local::now());
     }
 }
@@ -106,7 +110,7 @@ impl Displays {
     pub fn set_brightness(&mut self, b: u16) {
         for d in &mut self.devs {
             match d.set_vcp_feature(0x10, b) {
-                Ok(_) => println!("set brightness to {}", b),
+                Ok(_) => (),
                 Err(e) => println!("failed to set to {}: {}", b, e),
             }
         }
@@ -145,23 +149,4 @@ fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
 
     println!("updating brightness to {}", b);
     disps.set_brightness(b);
-}
-
-// suspend-aware wait until date. See `man timerfd_create(2)`.
-// XXX: watch file descriptor with futures
-fn wait_until<T: chrono::TimeZone>(dt: DateTime<T>) -> Result<(), Error> {
-    use nix::sys::time::TimeSpec;
-    use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
-
-    let delay = (dt.with_timezone(&Utc) - Utc::now())
-        .to_std()
-        .unwrap_or(std::time::Duration::new(0, 100));
-
-    let timer = TimerFd::new(ClockId::CLOCK_BOOTTIME, TimerFlags::empty())?;
-    timer.set(
-        Expiration::OneShot(TimeSpec::from(delay)),
-        TimerSetTimeFlags::empty(),
-    )?;
-
-    Ok(timer.wait()?)
 }
