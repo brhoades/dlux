@@ -3,7 +3,7 @@ use ddc::Ddc;
 use failure::{format_err, Error};
 use humantime::format_duration;
 use structopt::StructOpt;
-use tokio::time::sleep_until;
+use tokio::time::sleep;
 
 #[derive(StructOpt, Debug)]
 struct Opts {
@@ -68,7 +68,7 @@ async fn main() {
             next_dt.with_timezone(&Local)
         );
 
-        sleep_until(tokio::time::Instant::now() + wait).await;
+        wait_until(next_dt).unwrap();
         println!("awake, time is now: {}", Local::now());
     }
 }
@@ -145,4 +145,23 @@ fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
 
     println!("updating brightness to {}", b);
     disps.set_brightness(b);
+}
+
+// suspend-aware wait until date. See `man timerfd_create(2)`.
+// XXX: watch file descriptor with futures
+fn wait_until<T: chrono::TimeZone>(dt: DateTime<T>) -> Result<(), Error> {
+    use nix::sys::time::TimeSpec;
+    use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
+
+    let delay = (dt.with_timezone(&Utc) - Utc::now())
+        .to_std()
+        .unwrap_or(std::time::Duration::new(0, 100));
+
+    let timer = TimerFd::new(ClockId::CLOCK_BOOTTIME, TimerFlags::empty())?;
+    timer.set(
+        Expiration::OneShot(TimeSpec::from(delay)),
+        TimerSetTimeFlags::empty(),
+    )?;
+
+    Ok(timer.wait()?)
 }
