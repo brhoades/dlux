@@ -1,5 +1,5 @@
 [package]
-name = "ddc-flux"
+name = "dlux"
 version = "0.1.0"
 authors = ["Billy J Rhoades II <me@brod.es>"]
 edition = "2018"

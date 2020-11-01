@@ -123,7 +123,19 @@ dependencies = [
 ]
 
 [[package]]
-name = "ddc-flux"
+name = "ddc-i2c"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "66503057bd41fc21b532b3ebe33b2ec57e5d4971fcfc3844306ebcb499b6c8c2"
+dependencies = [
+ "ddc",
+ "i2c",
+ "i2c-linux",
+ "resize-slice",
+]
+
+[[package]]
+name = "dlux"
 version = "0.1.0"
 dependencies = [
  "chrono",
@@ -136,18 +148,6 @@ dependencies = [
  "structopt",
  "sun-times",
  "tokio",
-]
-
-[[package]]
-name = "ddc-i2c"
-version = "0.2.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "66503057bd41fc21b532b3ebe33b2ec57e5d4971fcfc3844306ebcb499b6c8c2"
-dependencies = [
- "ddc",
- "i2c",
- "i2c-linux",
- "resize-slice",
 ]
 
 [[package]]
