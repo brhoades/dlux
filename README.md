@@ -5,8 +5,9 @@ automatically sets hardware display brightness based on the time of day.
 
 dlux requires a monitor that supports [ddc/ci](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI).
 Unlike [f.lux](https://justgetflux.com/) or [redshift](https://github.com/jonls/redshift), dlux:
-  * has zero performance impact, fitting in ~2 KiB RAM
-  * works with any linux system, even with wayland or without a graphical session
+  * has zero performance impact
+  * runs in ~2 KiB
+  * works with any Linux setup and without a graphical session
 
 ## Requirements
 dlux requires userspace access to i2c devices through the [i2c-dev](https://www.kernel.org/doc/Documentation/i2c/dev-interface)
