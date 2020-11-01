@@ -5,8 +5,7 @@ automatically sets hardware display brightness based on the time of day.
 
 dlux requires a monitor that supports [ddc/ci](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI).
 Unlike [f.lux](https://justgetflux.com/) or [redshift](https://github.com/jonls/redshift), dlux:
-  * has zero performance impact
-  * runs in ~2 KiB
+  * has zero performance impact with tiny memory footprint
   * reduces electricity use
   * works with any Linux setup, even without a graphical session
 
