@@ -5,7 +5,7 @@ automatically sets hardware display brightness based on the time of day.
 
 dlux requires a monitor that supports [ddc/ci](https://en.wikipedia.org/wiki/Display_Data_Channel#DDC/CI).
 Unlike [f.lux](https://justgetflux.com/) or [redshift](https://github.com/jonls/redshift), dlux:
-  * has zero performance impact with tiny memory footprint
+  * has zero performance impact with a tiny memory footprint
   * reduces electricity use
   * works with any Linux setup, even without a graphical session
 
@@ -62,26 +62,31 @@ VCP code 0x10 (Brightness): current value = 100, max value = 100
 ## Usage
 ```
 $ dlux --help
-dlux 0.1.0
+dlux 0.1.1
 
 USAGE:
-    dlux [FLAGS] [OPTIONS] --brightness <brightness> --lat <lat> --long <long>
+    dlux [OPTIONS] --brightness <brightness> --latitude <latitude> --longitude <longitude>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-    -b, --brightness <brightness>    out of 100, the brightness to target for the screen
-        --height <height>             [default: 0.0]
-        --lat <lat>
-        --long <long>
+        --altitude <altitude>        altitude from sea level in meters of your location for sunset calculations
+                                     [default: 0.0]
+    -b, --brightness <brightness>    percentage of the target screen brightness at sunset
+        --latitude <latitude>        latitude of your location for sunset calculations
+        --log-level <level>          minimum log level printed to STDERR. Choose from: trace, debug, info, warn, error,
+                                     off [default: info]
+        --longitude <longitude>      longitude of your location for sunset calculations
+        --log-style <style>          controls when log output is colored. Choose from: auto, always, and never [default:
+                                     Auto]
 ```
 
 After compiling, provide your latitude, longitude, and desired nighttime brightness:
 ```
-$ dlux --brightness 40 --lat 40 --long="-120"
-found 3 devices, beginning loop
-updating brightness to 100
-Waiting 6h 34m 4s until 2020-11-01 16:58:41.100 -08:00
+$ dlux --brightness 40 --latitude 40 --longitude="-120"
+[2020-11-01T23:10:34Z INFO  dlux] discovered 3 monitors
+[2020-11-01T23:10:34Z INFO  dlux] updating brightness of all displays to 100
+[2020-11-01T23:10:34Z INFO  dlux] sleeping for 18h 37m 6s until 2020-11-02 09:47:41.100 -08:00
 ```

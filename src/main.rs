@@ -35,7 +35,7 @@ struct Opts {
 #[derive(StructOpt, Debug)]
 struct GeoOpts {
     /// latitude of your location for sunset calculations
-    #[structopt(long)]
+    #[structopt(long, alias = "lat")]
     latitude: f64,
 
     /// longitude of your location for sunset calculations
