@@ -2,6 +2,7 @@
 name = "dlux"
 version = "0.1.0"
 authors = ["Billy J Rhoades II <me@brod.es>"]
+description = "dlux adjusts hardware monitor brightness to match the sunset"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

@@ -1,8 +1,8 @@
 mod alarm;
+mod logging;
 
 use std::convert::TryInto;
 
-use clap::arg_enum;
 use failure::{format_err, Error};
 use log::{debug, error, info, warn};
 use structopt::StructOpt;
@@ -22,9 +22,9 @@ struct Opts {
     geo: GeoOpts,
 
     #[structopt(flatten)]
-    logging: LogOpts,
+    logging: logging::LogOpts,
 
-    /// out of 100, the brightness to target for the screen
+    /// percentage of the target screen brightness at sunset
     #[structopt(short, long)]
     brightness: u16,
     // fade in/out time at sunrise
@@ -34,29 +34,32 @@ struct Opts {
 
 #[derive(StructOpt, Debug)]
 struct GeoOpts {
+    /// latitude of your location for sunset calculations
     #[structopt(long)]
-    lat: f64,
+    latitude: f64,
 
-    #[structopt(long)]
-    long: f64,
+    /// longitude of your location for sunset calculations
+    #[structopt(long, alias = "long", alias = "lng")]
+    longitude: f64,
 
-    #[structopt(long, default_value = "0.0")]
-    height: f64,
+    /// altitude from sea level in meters of your location for sunset calculations
+    #[structopt(long, alias = "height", default_value = "0.0")]
+    altitude: f64,
 }
 
 #[derive(StructOpt, Debug)]
 struct DeviceOpts {
-    #[structopt(long)]
+    #[structopt(skip)]
     model: Vec<String>,
 
-    #[structopt(long)]
+    #[structopt(skip)]
     all: bool,
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
     let opts = Opts::from_args();
-    init_logger(&opts.logging);
+    logging::init_logger(&opts.logging);
 
     let mut disps = Displays::new()?;
     let mut alarm = Alarm::new()?;
@@ -134,16 +137,33 @@ impl Displays {
         self.devs.len()
     }
 
-    // Idempotently set brightness to the passed value..
-    pub fn set_brightness(&mut self, b: u16) {
+    // Idempotently set brightness of all displays to the passed relative percent of max.
+    pub fn set_brightness(&mut self, b: f64) {
         for d in &mut self.devs {
-            match d.set_vcp_feature(0x10, b) {
+            let rel_b = if let Ok(cap) = d.get_vcp_feature(0x10) {
+                let rel_b: f64 = f64::from(cap.maximum()) * b;
+                rel_b as u16
+            } else {
+                // assume 100
+                debug!("maximum brightness value query failed for {:?}, assuming brightness is out of 100", d.inner_ref().inner_ref());
+                (b * 100.0) as u16
+            };
+
+            match d.set_vcp_feature(0x10, rel_b) {
                 Ok(_) => debug!(
-                    "set brightness for {:?} to {}",
+                    "set brightness for {:?} to {}% (absolute {})",
                     d.inner_ref().inner_ref(),
-                    b,
+                    b * 100.0,
+                    rel_b,
                 ),
-                Err(e) => error!("failed to set to {}: {}", b, e),
+                Err(e) => {
+                    debug!(
+                        "device {:?} attempt set to {}:",
+                        d.inner_ref().inner_ref(),
+                        rel_b,
+                    );
+                    error!("failed to set monitor to {}%: {}", b * 100.0, e);
+                }
             }
         }
     }
@@ -170,8 +190,12 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     geo: &GeoOpts,
     date: chrono::Date<T>,
 ) -> (DateTime<Utc>, DateTime<Utc>) {
-    let (start, end) =
-        sun_times::sun_times(date.with_timezone(&Utc), geo.lat, geo.long, geo.height);
+    let (start, end) = sun_times::sun_times(
+        date.with_timezone(&Utc),
+        geo.latitude,
+        geo.longitude,
+        geo.altitude,
+    );
     (start, end)
 }
 
@@ -185,42 +209,6 @@ fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
         100
     };
 
-    debug!("updating brightness of all displays to {}", b);
-    disps.set_brightness(b);
-}
-
-arg_enum! {
-    #[derive(Eq, PartialEq, Debug, Clone, Copy)]
-    enum WriteStyle {
-        Auto,
-        Always,
-        Never,
-    }
-}
-
-impl From<WriteStyle> for env_logger::WriteStyle {
-    fn from(w: WriteStyle) -> Self {
-        match w {
-            WriteStyle::Auto => Self::Auto,
-            WriteStyle::Always => Self::Always,
-            WriteStyle::Never => Self::Never,
-        }
-    }
-}
-
-#[derive(StructOpt, Debug)]
-struct LogOpts {
-    #[structopt(long = "log-level", default_value = "info")]
-    level: log::LevelFilter,
-
-    #[structopt(long = "log-style", default_value = "auto")]
-    style: WriteStyle,
-}
-
-#[inline]
-fn init_logger(opts: &LogOpts) {
-    env_logger::Builder::from_default_env()
-        .filter_level(opts.level)
-        .write_style(opts.style.into())
-        .init();
+    info!("updating brightness of all displays to {}", b);
+    disps.set_brightness(f64::from(b) / 100.0);
 }
