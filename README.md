@@ -7,7 +7,8 @@ dlux requires a monitor that supports [ddc/ci](https://en.wikipedia.org/wiki/Dis
 Unlike [f.lux](https://justgetflux.com/) or [redshift](https://github.com/jonls/redshift), dlux:
   * has zero performance impact
   * runs in ~2 KiB
-  * works with any Linux setup and without a graphical session
+  * reduces electricity use
+  * works with any Linux setup, even without a graphical session
 
 ## Requirements
 dlux requires userspace access to i2c devices through the [i2c-dev](https://www.kernel.org/doc/Documentation/i2c/dev-interface)
