@@ -1,7 +1,3 @@
-mod alarm;
-mod logging;
-mod config;
-
 use std::convert::TryInto;
 
 use structopt::StructOpt;
@@ -12,12 +8,13 @@ use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
 use humantime::format_duration;
 
-use alarm::Alarm;
-
+use lib::alarm::Alarm;
+use lib::config::{Opts, GeoOpts};
+use lib::logging;
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let opts = config::Opts::from_args();
+    let opts = Opts::from_args();
     logging::init_logger(&opts.logging);
 
     let mut disps = Displays::new()?;
@@ -133,7 +130,7 @@ impl Displays {
 
 // A bit delicate: we need to check in local timezone so our dates are correct.
 // Tomorrow in UTC != tomorrow Local.
-fn get_next_event<T: chrono::TimeZone>(opts: &config::GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
+fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
     let today = now.with_timezone(&Local);
     let geo = get_start_stop_at_date(opts, today.date());
 
@@ -149,7 +146,7 @@ fn get_next_event<T: chrono::TimeZone>(opts: &config::GeoOpts, now: chrono::Date
 }
 
 fn get_start_stop_at_date<T: chrono::TimeZone>(
-    geo: &config::GeoOpts,
+    geo: &GeoOpts,
     date: chrono::Date<T>,
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let (start, end) = sun_times::sun_times(
@@ -161,16 +158,17 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     (start, end)
 }
 
-fn update_monitors_from_time(disps: &mut Displays, opts: &config::Opts) {
+fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
     let now = Local::now();
     let geo = get_start_stop_at_date(&opts.geo, now.date());
 
     let b = if now < geo.0 || now > geo.1 {
-        opts.brightness
+        opts.night_brightness
     } else {
-        100
+        opts.day_brightness
     };
 
     info!("updating brightness of all displays to {}", b);
     disps.set_brightness(f64::from(b) / 100.0);
 }
+

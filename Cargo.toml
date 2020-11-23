@@ -29,3 +29,6 @@ ddc = "0.2.2"
 
 nix = "0.19.0"
 
+[lib]
+name = "lib"
+path = "src/lib/lib.rs"
