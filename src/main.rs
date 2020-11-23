@@ -1,6 +1,5 @@
 use std::convert::TryInto;
 
-use structopt::StructOpt;
 use failure::{format_err, Error};
 use log::{debug, error, info, warn};
 
@@ -8,14 +7,16 @@ use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
 use humantime::format_duration;
 
-use lib::alarm::Alarm;
-use lib::config::{Opts, GeoOpts};
-use lib::logging;
+use lib::{
+    alarm::Alarm,
+    config::{Config, GeoOpts},
+    logging,
+};
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let opts = Opts::from_args();
-    logging::init_logger(&opts.logging);
+    let cfg = Config::new()?;
+    logging::init_logger(&cfg.logging);
 
     let mut disps = Displays::new()?;
     let mut alarm = Alarm::new()?;
@@ -26,9 +27,9 @@ async fn main() -> Result<(), Error> {
     // check monitor brightness again if delta was massive, since we
     // may be resuming from suspend.
     loop {
-        update_monitors_from_time(&mut disps, &opts);
+        update_monitors_from_time(&mut disps, &cfg);
 
-        let next_dt = get_next_event::<Local>(&opts.geo, Local::now());
+        let next_dt = get_next_event::<Local>(&cfg.geo, Local::now());
         alarm.reset(next_dt)?;
         info!(
             "sleeping for {} until {}",
@@ -158,14 +159,15 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     (start, end)
 }
 
-fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
+fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
     let now = Local::now();
-    let geo = get_start_stop_at_date(&opts.geo, now.date());
+    let geo = get_start_stop_at_date(&cfg.geo, now.date());
+    let dev = cfg.devices.first().expect("devices any entries");
 
     let b = if now < geo.0 || now > geo.1 {
-        opts.night_brightness
+        dev.night_brightness
     } else {
-        opts.day_brightness
+        dev.day_brightness
     };
 
     info!("updating brightness of all displays to {}", b);
