@@ -1,11 +1,12 @@
 mod alarm;
 mod logging;
+mod config;
 
 use std::convert::TryInto;
 
+use structopt::StructOpt;
 use failure::{format_err, Error};
 use log::{debug, error, info, warn};
-use structopt::StructOpt;
 
 use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
@@ -13,52 +14,10 @@ use humantime::format_duration;
 
 use alarm::Alarm;
 
-#[derive(StructOpt, Debug)]
-struct Opts {
-    #[structopt(flatten)]
-    devices: DeviceOpts,
-
-    #[structopt(flatten)]
-    geo: GeoOpts,
-
-    #[structopt(flatten)]
-    logging: logging::LogOpts,
-
-    /// percentage of the target screen brightness at sunset
-    #[structopt(short, long)]
-    brightness: u16,
-    // fade in/out time at sunrise
-    // #[structopt(short, long)]
-    // fade_time: chrono::Duration
-}
-
-#[derive(StructOpt, Debug)]
-struct GeoOpts {
-    /// latitude of your location for sunset calculations
-    #[structopt(long, alias = "lat")]
-    latitude: f64,
-
-    /// longitude of your location for sunset calculations
-    #[structopt(long, alias = "long", alias = "lng")]
-    longitude: f64,
-
-    /// altitude from sea level in meters of your location for sunset calculations
-    #[structopt(long, alias = "height", default_value = "0.0")]
-    altitude: f64,
-}
-
-#[derive(StructOpt, Debug)]
-struct DeviceOpts {
-    #[structopt(skip)]
-    model: Vec<String>,
-
-    #[structopt(skip)]
-    all: bool,
-}
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
-    let opts = Opts::from_args();
+    let opts = config::Opts::from_args();
     logging::init_logger(&opts.logging);
 
     let mut disps = Displays::new()?;
@@ -66,6 +25,9 @@ async fn main() -> Result<(), Error> {
 
     info!("discovered {} monitors", disps.len());
 
+    // XXX: take into account delta between last wake and now.
+    // check monitor brightness again if delta was massive, since we
+    // may be resuming from suspend.
     loop {
         update_monitors_from_time(&mut disps, &opts);
 
@@ -171,7 +133,7 @@ impl Displays {
 
 // A bit delicate: we need to check in local timezone so our dates are correct.
 // Tomorrow in UTC != tomorrow Local.
-fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
+fn get_next_event<T: chrono::TimeZone>(opts: &config::GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
     let today = now.with_timezone(&Local);
     let geo = get_start_stop_at_date(opts, today.date());
 
@@ -187,7 +149,7 @@ fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>)
 }
 
 fn get_start_stop_at_date<T: chrono::TimeZone>(
-    geo: &GeoOpts,
+    geo: &config::GeoOpts,
     date: chrono::Date<T>,
 ) -> (DateTime<Utc>, DateTime<Utc>) {
     let (start, end) = sun_times::sun_times(
@@ -199,7 +161,7 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     (start, end)
 }
 
-fn update_monitors_from_time(disps: &mut Displays, opts: &Opts) {
+fn update_monitors_from_time(disps: &mut Displays, opts: &config::Opts) {
     let now = Local::now();
     let geo = get_start_stop_at_date(&opts.geo, now.date());
 
