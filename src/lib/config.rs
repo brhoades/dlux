@@ -109,8 +109,8 @@ pub struct DeviceOpt {
     pub night_brightness: Option<u16>,
 }
 
-#[derive(Default, Debug)]
-pub struct DeviceMatcher<T> {
+#[derive(Default, Debug, Clone)]
+pub struct DeviceMatcher<T: Clone> {
     model: Option<T>,
     mfg: Option<T>,
     serial: Option<T>,
@@ -118,7 +118,7 @@ pub struct DeviceMatcher<T> {
 
 impl<T> std::fmt::Display for DeviceMatcher<T>
 where
-    T: AsRef<str>,
+    T: AsRef<str> + Clone,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self {
@@ -157,13 +157,13 @@ where
 }
 
 // DeviceOpt + Opts -> DeviceConfig
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DeviceConfig {
     // model, mfg, serial
     pub matcher: DeviceMatcher<String>,
 
-    pub day_brightness: u16,
-    pub night_brightness: u16,
+    pub day_brightness: f64,
+    pub night_brightness: f64,
 }
 
 impl DeviceConfig {
@@ -183,8 +183,8 @@ impl DeviceConfig {
 
         Ok(DeviceConfig {
             matcher,
-            day_brightness,
-            night_brightness,
+            day_brightness: day_brightness as f64 / 100.0,
+            night_brightness: night_brightness as f64 / 100.0,
         })
     }
 }
@@ -236,12 +236,14 @@ impl TryFrom<Opts> for Config {
                 format_err!(
                     "must specify --day-brightness for target daytime brightness percentage"
                 )
-            })?,
+            })? as f64
+                / 100.0,
             night_brightness: brightness.night_brightness.ok_or_else(|| {
                 format_err!(
                     "must specify --night-brightness for target nighttime brightness percentage"
                 )
-            })?,
+            })? as f64
+                / 100.0,
             matcher: DeviceMatcher::default(),
         }];
 

@@ -19,6 +19,7 @@ log = "0.4.0"
 env_logger = "0.8.1"
 anyhow = "1.0"
 
+itertools = "0.9.0"
 chrono = "0.4"
 sun-times = "0.1.2"
 humantime = "2.0.1"

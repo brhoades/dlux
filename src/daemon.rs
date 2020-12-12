@@ -5,12 +5,12 @@ use log::{debug, error, info, warn};
 use structopt::StructOpt;
 
 use chrono::{DateTime, Duration, Local, Utc};
-use ddc::Ddc;
 use humantime::format_duration;
 
 use lib::{
     alarm::Alarm,
     config::{Config, GeoOpts},
+    device::Displays,
 };
 
 #[derive(StructOpt, Debug)]
@@ -19,7 +19,7 @@ pub struct Opts {
 }
 
 pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
-    let mut disps = Displays::new()?;
+    let mut disps = Displays::new(&cfg.devices)?;
     let mut alarm = Alarm::new()?;
 
     info!("discovered {} monitors", disps.len());
@@ -44,89 +44,6 @@ pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
 
         alarm.future()?.await?;
         debug!("awake, time is now: {}", Local::now());
-    }
-}
-
-type Devs = Vec<ddc_i2c::I2cDdc<i2c_linux::I2c<std::fs::File>>>;
-
-struct Displays {
-    pub devs: Devs,
-}
-
-impl Displays {
-    fn new() -> Result<Self, Error> {
-        let devs = ddc_i2c::I2cDeviceEnumerator::new()?
-            .filter_map(|mut i| {
-                if i.get_vcp_feature(0x10).is_ok() {
-                    Some(i)
-                } else {
-                    None
-                }
-            })
-            .collect::<Devs>();
-
-        if devs.len() == 0 {
-            let devs = ddc_i2c::I2cDeviceEnumerator::new()?;
-            let mut cnt = 0;
-
-            for mut i in devs {
-                cnt += 1;
-                match &i.get_vcp_feature(0x10) {
-                    Ok(cap) => {
-                        let fd = i.into_inner().into_inner();
-
-                        error!("{:?}: unstable device - originally failed to query brightness but now succeeded\n", fd);
-                        debug!("{:?}: now has {:?}", fd, cap);
-                    }
-                    Err(e) => {
-                        warn!("{:?}: {}\n", i.into_inner().into_inner(), e);
-                    }
-                }
-            }
-
-            if cnt != 0 {
-                Err(format_err!("failed to discover compatible devices: no compatible monitors were found (of {}). Do your monitors support ddc?", cnt))
-            } else {
-                Err(format_err!("failed to query any devices: is the i2c-dev module loaded and can your user cannot access /dev/i2c file descriptors?"))
-            }
-        } else {
-            Ok(Displays { devs })
-        }
-    }
-
-    pub fn len(&self) -> usize {
-        self.devs.len()
-    }
-
-    // Idempotently set brightness of all displays to the passed relative percent of max.
-    pub fn set_brightness(&mut self, b: f64) {
-        for d in &mut self.devs {
-            let rel_b = if let Ok(cap) = d.get_vcp_feature(0x10) {
-                let rel_b: f64 = f64::from(cap.maximum()) * b;
-                rel_b as u16
-            } else {
-                // assume 100
-                debug!("maximum brightness value query failed for {:?}, assuming brightness is out of 100", d.inner_ref().inner_ref());
-                (b * 100.0) as u16
-            };
-
-            match d.set_vcp_feature(0x10, rel_b) {
-                Ok(_) => debug!(
-                    "set brightness for {:?} to {}% (absolute {})",
-                    d.inner_ref().inner_ref(),
-                    b * 100.0,
-                    rel_b,
-                ),
-                Err(e) => {
-                    debug!(
-                        "device {:?} attempt set to {}:",
-                        d.inner_ref().inner_ref(),
-                        rel_b,
-                    );
-                    error!("failed to set monitor to {}%: {}", b * 100.0, e);
-                }
-            }
-        }
     }
 }
 
@@ -163,14 +80,10 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
 fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
     let now = Local::now();
     let geo = get_start_stop_at_date(&cfg.geo, now.date());
-    let dev = cfg.devices.first().expect("devices any entries");
 
-    let b = if now < geo.0 || now > geo.1 {
-        dev.night_brightness
-    } else {
-        dev.day_brightness
-    };
+    let is_daytime = now < geo.0 || now > geo.1;
+    info!("updating brightness of all displays to {} value", if is_daytime { "daytime" } else { "nighttime" });
 
-    info!("updating brightness of all displays to {}", b);
-    disps.set_brightness(f64::from(b) / 100.0);
+    disps.update_brightness(is_daytime);
+
 }
