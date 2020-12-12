@@ -232,8 +232,16 @@ impl TryFrom<Opts> for Config {
         let brightness = opts.brightness;
         // Fudge a "All" device matcher.
         let devices = vec![DeviceConfig {
-            day_brightness: brightness.day_brightness.unwrap(),
-            night_brightness: brightness.night_brightness.unwrap(),
+            day_brightness: brightness.day_brightness.ok_or_else(|| {
+                format_err!(
+                    "must specify --day-brightness for target daytime brightness percentage"
+                )
+            })?,
+            night_brightness: brightness.night_brightness.ok_or_else(|| {
+                format_err!(
+                    "must specify --night-brightness for target nighttime brightness percentage"
+                )
+            })?,
             matcher: DeviceMatcher::default(),
         }];
 
