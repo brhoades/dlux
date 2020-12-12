@@ -1,19 +1,27 @@
 mod daemon;
 
-use failure::{format_err, Error};
+use std::convert::TryInto;
+use structopt::StructOpt;
 
-use daemon::Opts;
-use crate::lib::{
-    config::{Config, GeoOpts},
-    logging,
-};
+use lib::types::*;
 
-enum SubCommand {
+#[structopt(
+    name = "dlux",
+    about = "Dynamic hardware monitor brightness adjustment"
+)]
+#[derive(StructOpt, Debug)]
+enum Command {
     Daemon(daemon::Opts),
+    Start(lib::config::Opts),
 }
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
-    let cfg = Opts::new()?;
-    logging::init_logger(&cfg.logging);
+async fn main() -> Result<()> {
+    let opts: lib::config::Config = match Command::from_args() {
+        Command::Daemon(opts) => opts.config.try_into(),
+        Command::Start(opts) => opts.try_into(),
+    }?;
+
+    lib::logging::init_logger(&opts.logging);
+    daemon::run(opts).await
 }

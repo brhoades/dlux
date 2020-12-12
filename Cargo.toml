@@ -17,7 +17,7 @@ tokio = { version = "0.3.2", features = ["macros", "net", "rt-multi-thread"] }
 
 log = "0.4.0"
 env_logger = "0.8.1"
-failure = "0.1.8"
+anyhow = "1.0"
 
 chrono = "0.4"
 sun-times = "0.1.2"

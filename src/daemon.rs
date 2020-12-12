@@ -1,7 +1,8 @@
 use std::convert::TryInto;
 
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use log::{debug, error, info, warn};
+use structopt::StructOpt;
 
 use chrono::{DateTime, Duration, Local, Utc};
 use ddc::Ddc;
@@ -10,10 +11,14 @@ use humantime::format_duration;
 use lib::{
     alarm::Alarm,
     config::{Config, GeoOpts},
-    logging,
 };
 
-async fn daemon() -> Result<(), Error> {
+#[derive(StructOpt, Debug)]
+pub struct Opts {
+    pub config: std::path::PathBuf,
+}
+
+pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
     let mut disps = Displays::new()?;
     let mut alarm = Alarm::new()?;
 

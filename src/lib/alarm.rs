@@ -1,7 +1,7 @@
 use std::task::{Context, Poll};
 
 use chrono::{DateTime, TimeZone, Utc};
-use failure::{format_err, Error};
+use anyhow::{format_err, Error};
 use nix::sys::time::TimeSpec;
 use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFlags};
 use tokio::io::unix::AsyncFd;

@@ -35,24 +35,14 @@ dlux --day 100 --night 40 --lat 0.0 \
      --long 0.0 --log-level debug
 */
 
-fn cfg_file() -> bool {
-    true
-}
-
 #[derive(StructOpt, Debug, Deserialize)]
 pub struct Opts {
     #[structopt(flatten)]
     pub geo: GeoOpts,
 
-    pub config: Option<std::path::PathBuf>,
-
-    #[structopt(flatten)]
-    #[serde(skip)]
-    pub brightness: BrightnessOpt,
-
-    #[structopt(skip)]
     #[serde(flatten)]
-    pub brightness_cfg: BrightnessConfig,
+    #[structopt(flatten)]
+    pub brightness: BrightnessOpt,
 
     #[structopt(flatten)]
     pub logging: crate::logging::LogOpts,
@@ -61,20 +51,14 @@ pub struct Opts {
     pub devices: Vec<DeviceOpt>,
 }
 
-#[derive(StructOpt, Default, Debug, Deserialize)]
+#[derive(Debug, StructOpt, Default, Deserialize)]
 pub struct BrightnessOpt {
     /// percentage of the target screen brightness during day
-    #[structopt(short, long = "day-brightness", default_value = "100", parse(try_from_str = parse_brightness_percent))]
-    pub day: u16,
+    #[structopt(short, long = "day-brightness", parse(try_from_str = parse_brightness_percent))]
+    pub day_brightness: Option<u16>,
 
     /// percentage of the target screen brightness after sunset
     #[structopt(short, long = "night-brightness", parse(try_from_str = parse_brightness_percent))]
-    pub night: u16,
-}
-
-#[derive(Debug, Default, Deserialize)]
-pub struct BrightnessConfig {
-    pub day_brightness: Option<u16>,
     pub night_brightness: Option<u16>,
 }
 
@@ -183,7 +167,7 @@ pub struct DeviceConfig {
 }
 
 impl DeviceConfig {
-    fn try_from_opts<'a>(opts: DeviceOpt, defaults: &BrightnessConfig) -> Result<DeviceConfig> {
+    fn try_from_opts<'a>(opts: DeviceOpt, defaults: &BrightnessOpt) -> Result<DeviceConfig> {
         let matcher = DeviceMatcher {
             model: opts.model,
             mfg: opts.manufacturer_id,
@@ -219,43 +203,44 @@ impl Config {
     }
 }
 
-impl TryFrom<Opts> for Config {
-    type Error = Error;
+impl TryFrom<std::path::PathBuf> for Config {
+    type Error = anyhow::Error;
 
-    fn try_from(opts: Opts) -> Result<Self> {
-        let (geo, logging, devices) = match opts.config {
-            Some(file) => {
-                let geo = opts.geo;
-                let logging = opts.logging;
-                let devices = opts.devices;
-                let brightness = opts.brightness_cfg;
-                let opts: Opts = serde_yaml::from_reader(std::fs::File::open(file)?)?;
-                let devices = devices
-                    .into_iter()
-                    .map(|opt| DeviceConfig::try_from_opts(opt, &brightness))
-                    .collect::<Result<Vec<_>>>()?;
-                (geo, logging, devices)
-            }
-            None => {
-                let brightness = BrightnessConfig {
-                    day_brightness: Some(opts.brightness.day),
-                    night_brightness: Some(opts.brightness.night),
-                };
-                // Fudge a "All" device matcher.
-                let devices = vec![DeviceConfig {
-                    day_brightness: brightness.day_brightness.unwrap(),
-                    night_brightness: brightness.night_brightness.unwrap(),
-                    matcher: DeviceMatcher::default(),
-                }];
-
-                (opts.geo, opts.logging, devices)
-            }
-        };
+    fn try_from(path: std::path::PathBuf) -> Result<Self> {
+        let opts: Opts = serde_yaml::from_reader(std::fs::File::open(path)?)?;
+        let geo = opts.geo;
+        let logging = opts.logging;
+        let brightness = opts.brightness;
+        let devices = opts
+            .devices
+            .into_iter()
+            .map(|opt| DeviceConfig::try_from_opts(opt, &brightness))
+            .collect::<Result<Vec<_>>>()?;
 
         Ok(Config {
             geo,
             logging,
             devices,
+        })
+    }
+}
+
+impl TryFrom<Opts> for Config {
+    type Error = Error;
+
+    fn try_from(opts: Opts) -> Result<Self> {
+        let brightness = opts.brightness;
+        // Fudge a "All" device matcher.
+        let devices = vec![DeviceConfig {
+            day_brightness: brightness.day_brightness.unwrap(),
+            night_brightness: brightness.night_brightness.unwrap(),
+            matcher: DeviceMatcher::default(),
+        }];
+
+        Ok(Config {
+            devices,
+            geo: opts.geo,
+            logging: opts.logging,
         })
     }
 }

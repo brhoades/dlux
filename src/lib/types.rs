@@ -1,2 +1,1 @@
-pub use failure::{format_err, Fail, ResultExt, Error};
-pub type Result<T> = std::result::Result<T, Error>;
+pub use anyhow::{format_err, Error, Result};
