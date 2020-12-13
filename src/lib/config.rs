@@ -157,7 +157,7 @@ where
 }
 
 // DeviceOpt + Opts -> DeviceConfig
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct DeviceConfig {
     // model, mfg, serial
     pub matcher: DeviceMatcher<String>,

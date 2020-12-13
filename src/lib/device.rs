@@ -6,7 +6,7 @@ use ddc_i2c::I2cDdc;
 use i2c_linux::I2c;
 use log::{debug, error, info, trace, warn};
 
-use crate::{config::DeviceConfig, types::*};
+use crate::{config::DeviceConfig, edid::DisplayInfo, types::*};
 
 pub type I2CDevice = I2cDdc<I2c<File>>;
 pub struct Device {
@@ -18,6 +18,7 @@ pub struct Device {
 impl TryFrom<I2CDevice> for Device {
     type Error = Error;
     fn try_from(dev: I2CDevice) -> Result<Self> {
+        let mut dev = dev;
         // dig out the device path from the file descriptor
         use std::os::unix::io::AsRawFd;
         let fd_num = dev.inner_ref().inner_ref().as_raw_fd().to_string();
@@ -44,6 +45,10 @@ impl Device {
         self.inner.get_vcp_feature(0x10)?;
         Ok(())
     }
+
+    pub fn display_info(&mut self) -> Result<DisplayInfo> {
+        DisplayInfo::new(&mut self.inner)
+    }
 }
 
 impl std::fmt::Display for Device {
@@ -60,6 +65,12 @@ pub struct Display {
 
 pub struct Displays {
     displays: Vec<Display>,
+}
+
+impl Display {
+    pub fn display_info(&mut self) -> Result<DisplayInfo> {
+        self.device.display_info()
+    }
 }
 
 impl std::fmt::Display for Display {
@@ -106,7 +117,7 @@ impl Displays {
         // Pair discovered devices to matching configs.
         let mut displays = Vec::with_capacity(devs.len());
         for dev in devs {
-            // earlier configs gets priority
+            // earlier configs get priority
             for cfg in cfgs {
                 trace!("device {} {}", dev, cfg.matcher);
                 displays.push(Display {
@@ -128,6 +139,14 @@ impl Displays {
         for disp in &mut self.displays {
             disp.update_brightness(is_daytime);
         }
+    }
+
+    pub fn iter(&self) -> impl Iterator<Item = &Display> {
+        self.displays.iter()
+    }
+
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Display> {
+        self.displays.iter_mut()
     }
 }
 
