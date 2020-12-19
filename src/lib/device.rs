@@ -57,7 +57,7 @@ impl BrightnessHardware for Device {
     }
 
     fn set_brightness(&mut self, b: f64) -> Result<()> {
-        let rel_b = ((b * self.max_brightness()? as f64) * 100.0) as u16;
+        let rel_b = (b * self.max_brightness()? as f64) as u16;
 
         match self.inner.set_vcp_feature(0x10, rel_b) {
             Ok(_) => {
@@ -198,12 +198,6 @@ impl Displays {
 
     pub fn len(&self) -> usize {
         self.displays.len()
-    }
-
-    pub fn update_brightness(&mut self, is_daytime: bool) {
-        for disp in &mut self.displays {
-            disp.update_brightness(is_daytime);
-        }
     }
 
     pub fn iter(&self) -> impl Iterator<Item = &Display> {

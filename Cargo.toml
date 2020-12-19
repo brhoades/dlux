@@ -13,7 +13,8 @@ clap = "2.33.3"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8"
 
-tokio = { version = "0.3.2", features = ["macros", "net", "rt-multi-thread"] }
+tokio = { version = "0.3.2", features = ["macros", "net", "rt-multi-thread", "time"] }
+futures = { version = "0.3" }
 
 log = "0.4.0"
 env_logger = "0.8.1"
@@ -29,6 +30,8 @@ i2c-linux = "0.1.2"
 ddc = "0.2.2"
 
 nix = "0.19.0"
+
+adaptive_backoff = { version = "0.1", path = "../adaptive_backoff" }
 
 [lib]
 name = "lib"
