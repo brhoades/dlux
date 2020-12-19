@@ -60,33 +60,133 @@ VCP code 0x10 (Brightness): current value = 100, max value = 100
 ```
 
 ## Usage
+`dlux` has three subcommands: `probe`, `daemon`, and `run`. `run` and `daemon`
+are functionally identically except `daemon` takes a config file and `run` uses
+entirely CLI parameters.
+
 ```
 $ dlux --help
-dlux 0.1.1
+dlux 0.1.2
+Dynamic hardware monitor brightness adjustment
 
 USAGE:
-    dlux [OPTIONS] --brightness <brightness> --latitude <latitude> --longitude <longitude>
+    dlux <SUBCOMMAND>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+SUBCOMMANDS:
+    daemon
+    help      Prints this message or the help of the given subcommand(s)
+    probe
+    start
+
+```
+
+### Daemon
+The daemon takes a yaml configuration file as the first and only parameter:
+
+```
+$ dlux daemon --help
+dlux-daemon 0.1.2
+
+USAGE:
+    dlux daemon <config>
+
+FLAGS:
+    -h, --help       Prints help information
+    -V, --version    Prints version information
+
+ARGS:
+    <config>
+
+$ dlux daemon config.yaml
+[2020-12-19T22:33:01Z INFO  dlux::daemon] discovered 3 monitors
+[2020-12-19T22:33:01Z INFO  dlux::daemon] updating brightness of all displays to nighttime value
+[2020-12-19T22:33:01Z DEBUG lib::device] set brightness for /dev/i2c-1 to 40% (absolute 40)
+[2020-12-19T22:33:01Z DEBUG lib::device] set brightness for /dev/i2c-3 to 40% (absolute 40)
+[2020-12-19T22:33:01Z DEBUG lib::device] set brightness for /dev/i2c-5 to 40% (absolute 40)
+[2020-12-19T22:33:01Z DEBUG dlux::daemon] finished setting monitor brightness
+[2020-12-19T22:33:01Z INFO  dlux::daemon] sleeping for 1h 50m 55s until 2020-12-19 16:23:57.100 -08:00
+```
+
+Example configuration file, showing per-device overrides and global settings:
+
+```yaml
+geo:
+  latitude: 20
+  longitude: -100
+  altitude: 200
+logging:
+  level: Debug
+day_brightness: 100
+night_brightness: 40
+devices:
+  - model: /dell U2145/i
+    manufacturer_id: DEL
+    serial:
+  - model: /dell U2145/i
+    manufacturer_id: DEL
+    serial:
+    day_brightness: 80
+    night_brightness: 50
+```
+
+
+### Legacy CLI
+`dlux start` mirrors classic CLI usage. It will run a daemon indefinitely based on passed parameters.
+It does not accept a config file.
+
+```
+$ dlux start
+dlux-start 0.1.2
+
+USAGE:
+    dlux start [OPTIONS] --latitude <latitude> --longitude <longitude>
 
 FLAGS:
     -h, --help       Prints help information
     -V, --version    Prints version information
 
 OPTIONS:
-        --altitude <altitude>        altitude from sea level in meters of your location for sunset calculations
-                                     [default: 0.0]
-    -b, --brightness <brightness>    percentage of the target screen brightness at sunset
-        --latitude <latitude>        latitude of your location for sunset calculations
-        --log-level <level>          minimum log level printed to STDERR. Choose from: trace, debug, info, warn, error,
-                                     off [default: info]
-        --longitude <longitude>      longitude of your location for sunset calculations
-        --log-style <style>          controls when log output is colored. Choose from: auto, always, and never [default:
-                                     Auto]
+        --altitude <altitude>
+            altitude from sea level in meters of your location for sunset calculations [default: 0.0]
+
+    -d, --day-brightness <day-brightness>        percentage of the target screen brightness during day
+        --latitude <latitude>                    latitude of your location for sunset calculations
+        --log-level <level>
+            minimum log level printed to STDERR. Choose from: trace, debug, info, warn, error, off [default: info]
+
+        --longitude <longitude>                  longitude of your location for sunset calculations
+    -n, --night-brightness <night-brightness>    percentage of the target screen brightness after sunset
+        --log-style <style>
+            controls when log output is colored. Choose from: auto, always, and never [default: Auto]
 ```
 
 After compiling, provide your latitude, longitude, and desired nighttime brightness:
 ```
-$ dlux --brightness 40 --latitude 40 --longitude="-120"
-[2020-11-01T23:10:34Z INFO  dlux] discovered 3 monitors
-[2020-11-01T23:10:34Z INFO  dlux] updating brightness of all displays to 100
-[2020-11-01T23:10:34Z INFO  dlux] sleeping for 18h 37m 6s until 2020-11-02 09:47:41.100 -08:00
+$ dlux --day-brightness 100 --night-brightness 40 --latitude 40 --longitude="-120"
+[2020-12-19T22:27:51Z INFO  dlux::daemon] discovered 3 monitors
+[2020-12-19T22:27:51Z INFO  dlux::daemon] updating brightness of all displays to daytime value
+[2020-12-19T22:27:52Z INFO  dlux::daemon] sleeping for 18h 21m 29s until 2020-12-20 08:49:21.100 -08:00
+```
+
+### Probe
+`RUST_LOG=trace dlux probe` provides information for easily writing config device matchers. It's
+fairly rough and only has debug output at this time.
+
+```
+[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-1
+[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-3
+[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-5
+[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-1 matches any device
+[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-3 matches any device
+[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-5 matches any device
+[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-1
+[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2415", serial: "deadbeef123" })
+[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-3
+[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2720Q", serial: "asdf123" })
+[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-5
+[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2415", serial: "a123b" })
 ```
