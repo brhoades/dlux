@@ -67,17 +67,20 @@ pub struct LogOpts {
     level: LevelFilter,
 
     /// controls when log output is colored. Choose from: auto,
-    /// always, and never.
+    /// always, and never. RUST_LOG env var may override this parameter.
     #[structopt(long = "log-style", default_value)]
     #[serde(default)]
     style: WriteStyle,
 }
 
-#[inline]
+
+/// initializes logging from configuration. It uses the
+/// configuration initially but allows environment overrides.
 pub fn init_logger(opts: &LogOpts) {
-    env_logger::Builder::from_default_env()
+    env_logger::Builder::default()
         .filter_level(opts.level.into())
         .write_style(opts.style.into())
+        .parse_default_env()
         .init();
 
     trace!("logging initialized")
