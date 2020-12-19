@@ -24,9 +24,6 @@ pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
 
     info!("discovered {} monitors", disps.len());
 
-    // XXX: take into account delta between last wake and now.
-    // check monitor brightness again if delta was massive, since we
-    // may be resuming from suspend.
     loop {
         update_monitors_from_time(&mut disps, &cfg);
 
@@ -77,13 +74,15 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     (start, end)
 }
 
-fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
+async fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
     let now = Local::now();
     let geo = get_start_stop_at_date(&cfg.geo, now.date());
 
     let is_daytime = now < geo.0 || now > geo.1;
-    info!("updating brightness of all displays to {} value", if is_daytime { "daytime" } else { "nighttime" });
+    info!(
+        "updating brightness of all displays to {} value",
+        if is_daytime { "daytime" } else { "nighttime" }
+    );
 
     disps.update_brightness(is_daytime);
-
 }

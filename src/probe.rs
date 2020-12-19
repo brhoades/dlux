@@ -1,4 +1,4 @@
-use lib::{device::Displays, config, types::*};
+use lib::{config, device::Displays, types::*};
 use log::info;
 
 pub async fn run() -> Result<()> {
