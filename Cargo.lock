@@ -3,6 +3,8 @@
 [[package]]
 name = "adaptive_backoff"
 version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "371e0fe5994b46db563936781f2ccb4b9b2a1babd38af8cec0875d5106b29285"
 dependencies = [
  "anyhow",
  "derive_builder",

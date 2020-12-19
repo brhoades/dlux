@@ -4,7 +4,7 @@ use std::fs::{read_link, File};
 use ddc::Ddc;
 use ddc_i2c::I2cDdc;
 use i2c_linux::I2c;
-use log::{debug, error, info, trace, warn};
+use log::{debug, error, trace, warn};
 
 use crate::{config::DeviceConfig, edid::DisplayInfo, types::*};
 
@@ -111,9 +111,6 @@ impl Device {
     pub fn display_info(&mut self) -> Result<DisplayInfo> {
         DisplayInfo::new(&mut self.inner)
     }
-
-    /// Attempt to reopen our device.
-    fn refresh_handle(&mut self) {}
 }
 
 impl std::fmt::Display for Device {
