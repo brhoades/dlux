@@ -79,8 +79,9 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
 
 async fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
     let now = Local::now();
+    // return _today's_ sunrise and sunset times.
     let geo = get_start_stop_at_date(&cfg.geo, now.date());
-    let is_daytime = now < geo.0 || now > geo.1;
+    let is_daytime = now > geo.0 && now < geo.1;
     info!(
         "updating brightness of all displays to {} value",
         if is_daytime { "daytime" } else { "nighttime" }
