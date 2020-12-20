@@ -3,31 +3,32 @@ use std::convert::TryFrom;
 use crate::{config::DeviceConfig, logging::*, prelude::*, types::*};
 
 /// Display is a i2c device paired with its configuration.
-pub struct Display {
+pub struct Display<'a> {
     device: Device,
-    cfg: DeviceConfig,
+    cfg: &'a DeviceConfig,
 }
 
-pub struct Displays {
-    displays: Vec<Display>,
+pub struct Displays<'a> {
+    displays: Vec<Display<'a>>,
 }
 
-impl Display {
+impl<'a> Display<'a> {
     pub fn display_info(&mut self) -> Result<DeviceInfo> {
         self.device.display_info()
     }
 }
 
-impl std::fmt::Display for Display {
+impl<'a> std::fmt::Display for Display<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.device.fmt(f)
     }
 }
 
-impl Displays {
-    pub fn new<C: AsRef<Vec<DeviceConfig>>>(cfgs: C) -> Result<Self> {
-        let cfgs = cfgs.as_ref();
-
+impl<'a> Displays<'a> {
+    /// Create a new set of displays from device configs, matching up
+    /// displays to their appropriate configuration. Unmatched displays
+    /// will be discarded.
+    pub fn new<C: IntoIterator<Item = &'a DeviceConfig>>(cfgs: C) -> Result<Self> {
         let (devs, unavail_devs) = ddc_i2c::I2cDeviceEnumerator::new()?
             .map(TryFrom::try_from)
             .map_results(|mut i: Device| match i.try_brightness() {
@@ -61,16 +62,14 @@ impl Displays {
 
         // Pair discovered devices to matching configs.
         let mut displays = Vec::with_capacity(devs.len());
+        let cfgs: Vec<_> = cfgs.into_iter().collect();
         for mut dev in devs {
             // earlier configs get priority
-            for cfg in cfgs {
+            for cfg in &cfgs {
                 let info = dev.display_info()?;
 
                 if cfg.matcher.matches(&info) {
-                    displays.push(Display {
-                        device: dev,
-                        cfg: cfg.clone(),
-                    });
+                    displays.push(Display { device: dev, cfg });
                     break;
                 }
             }
@@ -83,11 +82,11 @@ impl Displays {
         self.displays.len()
     }
 
-    pub fn iter(&self) -> impl Iterator<Item = &Display> {
+    pub fn iter<'b>(&'b self) -> impl Iterator<Item = &'b Display<'a>> {
         self.displays.iter()
     }
 
-    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Display> {
+    pub fn iter_mut<'b>(&'b mut self) -> impl Iterator<Item = &'b mut Display<'a>> {
         self.displays.iter_mut()
     }
 }
@@ -97,7 +96,7 @@ pub trait BrightnessOps {
     fn update_brightness(&mut self, is_daytime: bool) -> Result<()>;
 }
 
-impl BrightnessOps for Display {
+impl<'a> BrightnessOps for Display<'a> {
     fn update_brightness(&mut self, is_daytime: bool) -> Result<()> {
         self.device.set_brightness(if is_daytime {
             self.cfg.day_brightness as f64

@@ -15,7 +15,8 @@ pub async fn run(mut opts: Opts) -> Result<()> {
     }
     init_logger(&opts.logging);
 
-    let mut disps = Displays::new(vec![config::DeviceConfig::default()])?;
+    let def = config::DeviceConfig::default();
+    let mut disps = Displays::new(vec![&def])?;
 
     for disp in disps.iter_mut() {
         let edid = disp.display_info();

@@ -1,14 +1,13 @@
 use std::convert::TryInto;
 
+use adaptive_backoff::prelude::*;
 use anyhow::{format_err, Error, Result};
-use futures::future::{select, try_join_all, Either};
+use chrono::{DateTime, Duration, Local, Utc};
+use futures::future::try_join_all;
+use humantime::format_duration;
 use log::*;
 use structopt::StructOpt;
-use tokio::time::sleep;
-
-use adaptive_backoff::prelude::*;
-use chrono::{DateTime, Duration, Local, Utc};
-use humantime::format_duration;
+use tokio::{select, time::sleep};
 
 use lib::{
     alarm::Alarm,
@@ -23,15 +22,14 @@ pub struct Opts {
 
 pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
     let mut disps = Displays::new(&cfg.devices)?;
+    let mut alarm = Alarm::new()?;
+    info!("discovered {} monitors", disps.len());
+
     if disps.len() == 0 {
         return Err(format_err!(
             "no displays discovered: is i2c-dev loaded and do you have access?"
         ));
     }
-
-    let mut alarm = Alarm::new()?;
-
-    info!("discovered {} monitors", disps.len());
 
     loop {
         update_monitors_from_time(&mut disps, &cfg).await;
@@ -83,7 +81,7 @@ fn get_start_stop_at_date<T: chrono::TimeZone>(
     (start, end)
 }
 
-async fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
+async fn update_monitors_from_time<'a>(disps: &mut Displays<'a>, cfg: &Config) {
     let now = Local::now();
     // return _today's_ sunrise and sunset times.
     let geo = get_start_stop_at_date(&cfg.geo, now.date());
@@ -96,22 +94,17 @@ async fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
     // Run all updates in parallel, retrying, and if any error bail completely.
     // When resuming from suspend, monitors may not wake up consistently and this
     // ensures they eventually are set properly.
-    let set_displays = try_join_all(
-        disps
-            .iter_mut()
-            .map(|d| retry_monitor(d, is_daytime))
-            .collect::<Vec<_>>(),
-    );
-
-    match select(set_displays, sleep(std::time::Duration::from_secs(300))).await {
-        Either::Left((Err(e), _)) => {
-            error!("failed to set display brightness: {}", e);
-            panic!(e);
-        }
-        Either::Left((Ok(_), _)) => {
-            debug!("finished setting monitor brightness");
-        }
-        Either::Right(_) => {
+    select! {
+        res = try_join_all(disps.iter_mut().map(|d| retry_monitor(d, is_daytime))) => match res {
+            Err(e) => {
+                error!("failed to set display brightness: {}", e);
+                panic!(e);
+            },
+            Ok(_) => {
+                debug!("finished setting monitor brightness");
+            },
+        },
+        _ = sleep(std::time::Duration::from_secs(300)) => {
             error!("timed out setting monitor brightness after 5 mintues");
         }
     };
@@ -119,7 +112,7 @@ async fn update_monitors_from_time(disps: &mut Displays, cfg: &Config) {
 
 /// retry_monitor retires setting brightness on failure indefinely. It's not expected
 /// that errors should return except when dependencies fail.
-async fn retry_monitor(disp: &mut Display, is_day: bool) -> Result<()> {
+async fn retry_monitor<'a>(disp: &mut Display<'a>, is_day: bool) -> Result<()> {
     let mut backoff = ExponentialBackoffBuilder::default()
         .factor(1.1)
         .max(5.0)

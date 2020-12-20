@@ -111,8 +111,17 @@ $ dlux daemon config.yaml
 [2020-12-19T22:33:01Z INFO  dlux::daemon] sleeping for 1h 50m 55s until 2020-12-19 16:23:57.100 -08:00
 ```
 
-Example configuration file, showing per-device overrides and global settings:
+Minimal configuration which manages all compatible devices automatically:
+```yaml
+geo:
+  latitude: 20
+  longitude: -100
+day_brightness: 100
+night_brightness: 40
+```
 
+Configuration file with explicit device matches and per-device overrides of global settings.
+Note that all devices must be matched by the list.
 ```yaml
 geo:
   latitude: 20
@@ -123,16 +132,27 @@ logging:
 day_brightness: 100
 night_brightness: 40
 devices:
-  - model: /dell U2145/i
-    manufacturer_id: DEL
-    serial:
-  - model: /dell U2145/i
-    manufacturer_id: DEL
-    serial:
+  - model: (?i)dell U2145
     day_brightness: 80
     night_brightness: 50
+    manufacturer_id: DEL
+  - model: DELL U2145
 ```
 
+Configuration file with explicit device matches and per-device overrides of global settings.
+By default, devices matched are overriden but all devices are managed, but `device_match_exclusive`
+can make it so only matched devices are handled.
+```yaml
+geo:
+  latitude: 20
+  longitude: -100
+day_brightness: 100
+night_brightness: 40
+device_match_exclusive: true
+devices:
+  - model: (?i)dell U2145
+  - model: DELL U2145
+```
 
 ### Legacy CLI
 `dlux start` mirrors classic CLI usage. It will run a daemon indefinitely based on passed parameters.

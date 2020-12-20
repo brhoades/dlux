@@ -41,9 +41,9 @@ impl DeviceMatcher {
             } => vec![re_mfg.find(&info.manufacturer), re_model.find(&info.model)],
         };
 
-        if mtches.len() == 0 || mtches.iter().all(Option::is_none) {
+        if mtches.len() == 0 || mtches.iter().any(Option::is_none) {
             debug!("{} does not match {}", info, self.internal_fmt());
-            trace!("matchers output: {:#?}", info);
+            trace!("matchers output: {:?}", mtches);
             return false;
         }
 

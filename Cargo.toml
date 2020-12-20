@@ -16,7 +16,7 @@ serde_yaml = "0.8"
 serde_regex = "1.1.0"
 regex = "1.4"
 
-tokio = { version = "0.3.2", features = ["macros", "net", "rt-multi-thread", "time"] }
+tokio = { version = "0.3.6", features = ["macros", "net", "rt-multi-thread", "time"] }
 futures = { version = "0.3" }
 
 log = "0.4.0"
