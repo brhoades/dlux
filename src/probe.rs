@@ -1,8 +1,20 @@
-use lib::{config, device::Displays, types::*};
-use log::info;
+use structopt::StructOpt;
 
-pub async fn run() -> Result<()> {
-    env_logger::init();
+use lib::{config, logging::*, prelude::Displays, types::*};
+
+#[derive(StructOpt, Debug)]
+pub struct Opts {
+    #[structopt(flatten)]
+    pub logging: LogOpts,
+}
+
+pub async fn run(mut opts: Opts) -> Result<()> {
+    // force info or higher for below output
+    if opts.logging.level > LevelFilter::Info {
+        opts.logging.level = LevelFilter::Info
+    }
+    init_logger(&opts.logging);
+
     let mut disps = Displays::new(vec![config::DeviceConfig::default()])?;
 
     for disp in disps.iter_mut() {
