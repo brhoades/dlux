@@ -3,16 +3,14 @@ use ddc::Edid;
 use crate::types::*;
 
 #[derive(Debug, Default, Clone)]
-pub struct DisplayInfo {
+pub struct DeviceInfo {
     pub(crate) manufacturer: String,
     pub(crate) model: String,
     pub(crate) serial: String,
 }
 
-impl DisplayInfo {
-    pub fn new<F: std::error::Error, T: Edid<EdidError = F>>(
-        d: &mut T,
-    ) -> Result<DisplayInfo> {
+impl DeviceInfo {
+    pub fn new<F: std::error::Error, T: Edid<EdidError = F>>(d: &mut T) -> Result<DeviceInfo> {
         let mut edid = vec![0; 128];
         match d
             .read_edid(0, &mut edid)
@@ -27,7 +25,7 @@ impl DisplayInfo {
             )),
         }?;
 
-        let mut info = DisplayInfo::default();
+        let mut info = DeviceInfo::default();
         let descrs = vec![
             &edid[54..72],
             &edid[72..90],
@@ -76,9 +74,13 @@ fn read_mfg_id(edid: &[u8]) -> Result<String> {
     Ok(std::str::from_utf8(&res.iter().map(|c| c + 65 - 1).collect::<Vec<_>>())?.to_owned())
 }
 
-impl std::fmt::Display for DisplayInfo {
+impl std::fmt::Display for DeviceInfo {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{} {} (SN: {})", self.manufacturer, self.model, self.serial)
+        write!(
+            f,
+            "{} {} (SN: {})",
+            self.manufacturer, self.model, self.serial
+        )
     }
 }
 
@@ -103,7 +105,6 @@ fn read_descriptor(descr: &[u8]) -> Result<DispDescr> {
         _ => DispDescr::Other,
     })
 }
-
 
 #[test]
 fn test_parse_mfg_example() {
