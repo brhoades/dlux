@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
+use regex::{escape, Regex};
+use serde_yaml::to_string;
 use structopt::StructOpt;
 
-use lib::{config, logging::*, prelude::Displays, types::*};
+use lib::{config, logging::*, prelude::*, types::*};
 
 #[derive(StructOpt, Debug)]
 pub struct Opts {
@@ -18,11 +22,28 @@ pub async fn run(mut opts: Opts) -> Result<()> {
     let def = config::DeviceConfig::default();
     let mut disps = Displays::new(vec![&def])?;
 
-    for disp in disps.iter_mut() {
-        let edid = disp.display_info();
-        info!("device: {}", disp);
-        info!("edid: {:?}", edid);
-    }
+    let disps = disps
+        .iter_mut()
+        .map(|d| {
+            debug!("parsing edid for {}", d);
+            let edid = d.display_info()?;
+            debug!("edid: {}", edid);
+
+            Ok(config::DeviceOpts::new(
+                Some(Regex::new(&escape(&edid.model))?),
+                Some(Regex::new(&escape(&edid.serial))?),
+                Some(edid.manufacturer),
+            ))
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    let yaml = to_string(
+        &vec![("devices", disps)]
+            .into_iter()
+            .collect::<HashMap<_, _>>(),
+    )?;
+
+    println!("{}", yaml);
 
     Ok(())
 }

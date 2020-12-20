@@ -4,9 +4,9 @@ use crate::types::*;
 
 #[derive(Debug, Default, Clone)]
 pub struct DeviceInfo {
-    pub(crate) manufacturer: String,
-    pub(crate) model: String,
-    pub(crate) serial: String,
+    pub manufacturer: String,
+    pub model: String,
+    pub serial: String,
 }
 
 impl DeviceInfo {

@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use regex::Regex;
-use serde::Deserialize;
+use serde::{Serialize, Deserialize};
 use structopt::StructOpt;
 
 use crate::{logging::*, prelude::*, types::*};
@@ -87,21 +87,33 @@ fn parse_geo_coord<T: AsRef<str>>(input: T) -> Result<f64> {
 /// Model and Manufacturer ID are case sensitive regular expressions. You may include flags to
 /// toggle case sensitivity [as outlined in the regex crate](https://docs.rs/regex/1.4.2/regex/#grouping-and-flags),
 /// for example "(?i)&dell U2720Q" is case insensitive.
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Default, Serialize, Deserialize)]
 pub struct DeviceOpts {
-    #[serde(default, with = "serde_regex")]
+    #[serde(default, with = "serde_regex", skip_serializing_if = "Option::is_none")]
     pub model: Option<Regex>,
-    #[serde(default, with = "serde_regex")]
+    #[serde(default, with = "serde_regex", skip_serializing_if = "Option::is_none")]
     pub manufacturer_id: Option<Regex>,
     // XXX: override exclusivity.
     pub serial: Option<String>,
 
     /// Forces a specific day brightness for matching devices,
     /// overriding global configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub day_brightness: Option<u16>,
     /// Forces a specific night brightness for matching devices,
     /// overriding global configuration.
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub night_brightness: Option<u16>,
+}
+
+impl DeviceOpts {
+    pub fn new(model: Option<Regex>, manufacturer_id: Option<Regex>, serial: Option<String>) -> DeviceOpts {
+        Self {
+            model,
+            manufacturer_id, serial,
+            ..Self::default()
+        }
+    }
 }
 
 // DeviceOpts + Opts -> DeviceConfig

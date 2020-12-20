@@ -193,20 +193,19 @@ $ dlux --day-brightness 100 --night-brightness 40 --latitude 40 --longitude="-12
 ```
 
 ### Probe
-`RUST_LOG=trace dlux probe` provides information for easily writing config device matchers. It's
-fairly rough and only has debug output at this time.
+`dlux probe` provides valid config yaml for all the currently available supported devices:
 
 ```
-[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-1
-[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-3
-[2020-12-19T22:30:47Z TRACE lib::device] found device /dev/i2c-5
-[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-1 matches any device
-[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-3 matches any device
-[2020-12-19T22:30:47Z TRACE lib::device] device /dev/i2c-5 matches any device
-[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-1
-[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2415", serial: "deadbeef123" })
-[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-3
-[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2720Q", serial: "asdf123" })
-[2020-12-19T22:30:47Z INFO  dlux::probe] device: /dev/i2c-5
-[2020-12-19T22:30:47Z INFO  dlux::probe] edid: Ok(DisplayInfo { manufacturer: "", model: "DELL U2415", serial: "a123b" })
+$ dlux probe
+---
+devices:
+  - model: DELL U2415
+    manufacturer_id: CFV9N98G0YDS
+    serial: DEL
+  - model: DELL U2720Q
+    manufacturer_id: F8KFX13
+    serial: DEL
+  - model: DELL U2415
+    manufacturer_id: CFV9N9890J5S
+    serial: DEL
 ```
