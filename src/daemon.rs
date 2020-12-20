@@ -1,6 +1,6 @@
 use std::convert::TryInto;
 
-use anyhow::{Error, Result};
+use anyhow::{format_err, Error, Result};
 use futures::future::{select, try_join_all, Either};
 use log::*;
 use structopt::StructOpt;
@@ -13,7 +13,7 @@ use humantime::format_duration;
 use lib::{
     alarm::Alarm,
     config::{Config, GeoOpts},
-    device::{BrightnessOps, Display, Displays},
+    display::{BrightnessOps, Display, Displays},
 };
 
 #[derive(StructOpt, Debug)]
@@ -23,6 +23,12 @@ pub struct Opts {
 
 pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
     let mut disps = Displays::new(&cfg.devices)?;
+    if disps.len() == 0 {
+        return Err(format_err!(
+            "no displays discovered: is i2c-dev loaded and do you have access?"
+        ));
+    }
+
     let mut alarm = Alarm::new()?;
 
     info!("discovered {} monitors", disps.len());
@@ -120,7 +126,7 @@ async fn retry_monitor(disp: &mut Display, is_day: bool) -> Result<()> {
         .build()
         .unwrap();
 
-    let mut tries = 1;
+    let mut tries: u64 = 1;
     loop {
         if let Err(e) = disp.update_brightness(is_day) {
             debug!(

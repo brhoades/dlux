@@ -1,12 +1,12 @@
-use log::trace;
 use serde::Deserialize;
 use structopt::StructOpt;
+pub use log::{trace, debug, info, error, warn};
 
 use clap::arg_enum;
 
 arg_enum! {
-    #[derive(Debug, Deserialize, Eq, PartialEq, Clone, Copy)]
-    enum LevelFilter {
+    #[derive(Debug, Deserialize, Eq, PartialEq, Clone, Copy, PartialOrd, Ord)]
+    pub enum LevelFilter {
         Trace,
         Debug,
         Info,
@@ -34,8 +34,8 @@ impl Default for LevelFilter {
 }
 
 arg_enum! {
-    #[derive(Eq, PartialEq, Debug, Clone, Copy, Deserialize)]
-    enum WriteStyle {
+    #[derive(Eq, PartialEq, Debug, Clone, Copy, Deserialize, PartialOrd, Ord)]
+    pub enum WriteStyle {
         Auto,
         Always,
         Never,
@@ -64,15 +64,14 @@ pub struct LogOpts {
     /// trace, debug, info, warn, error, off.
     #[structopt(long = "log-level", default_value = "info")]
     #[serde(default)]
-    level: LevelFilter,
+    pub level: LevelFilter,
 
     /// controls when log output is colored. Choose from: auto,
     /// always, and never. RUST_LOG env var may override this parameter.
     #[structopt(long = "log-style", default_value)]
     #[serde(default)]
-    style: WriteStyle,
+    pub style: WriteStyle,
 }
-
 
 /// initializes logging from configuration. It uses the
 /// configuration initially but allows environment overrides.

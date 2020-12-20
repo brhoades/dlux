@@ -1,9 +1,10 @@
 use std::convert::{TryFrom, TryInto};
 
+use regex::Regex;
 use serde::Deserialize;
 use structopt::StructOpt;
 
-use crate::types::*;
+use crate::{logging::*, prelude::*, types::*};
 
 /*
 geo:
@@ -100,67 +101,31 @@ fn parse_geo_coord<T: AsRef<str>>(input: T) -> Result<f64> {
 }
 
 #[derive(Debug, Deserialize)]
+/// DeviceOpt defines a devices' matching critera and its optional brightness overrides.
+/// Absent matching values behave as wildcards, while present ones are all AND'd together.
+/// If serial is specified, it is a whole case insensitive match and overrides anything else
+/// present.
+///
+/// Model and Manufacturer ID are case sensitive regular expressions. You may include flags to
+/// toggle case sensitivity [as outlined in the regex crate](https://docs.rs/regex/1.4.2/regex/#grouping-and-flags),
+/// for example "(?i)&dell U2720Q" is case insensitive.
 pub struct DeviceOpt {
-    pub model: Option<String>,
-    pub manufacturer_id: Option<String>,
+    #[serde(default, with = "serde_regex")]
+    pub model: Option<Regex>,
+    #[serde(default, with = "serde_regex")]
+    pub manufacturer_id: Option<Regex>,
+    // XXX: override exclusivity.
     pub serial: Option<String>,
 
     pub day_brightness: Option<u16>,
     pub night_brightness: Option<u16>,
 }
 
-#[derive(Default, Debug, Clone)]
-pub struct DeviceMatcher<T: Clone> {
-    model: Option<T>,
-    mfg: Option<T>,
-    serial: Option<T>,
-}
-
-impl<T> std::fmt::Display for DeviceMatcher<T>
-where
-    T: AsRef<str> + Clone,
-{
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match &self {
-            Self {
-                model: None,
-                mfg: None,
-                serial: None,
-            } => write!(f, "matches any device"),
-            Self {
-                model: _,
-                mfg: _,
-                serial: Some(serial),
-            } => write!(f, "matches serial {}", serial.as_ref()),
-            Self {
-                model: Some(model),
-                mfg: None,
-                serial: None,
-            } => write!(f, "matches model {}", model.as_ref()),
-            Self {
-                model: None,
-                mfg: Some(mfg),
-                serial: None,
-            } => write!(f, "matches manufacturer {}", mfg.as_ref()),
-            Self {
-                model: Some(model),
-                mfg: Some(mfg),
-                serial: None,
-            } => write!(
-                f,
-                "matches model {} and manufacturer {}",
-                model.as_ref(),
-                mfg.as_ref()
-            ),
-        }
-    }
-}
-
 // DeviceOpt + Opts -> DeviceConfig
 #[derive(Debug, Clone, Default)]
 pub struct DeviceConfig {
     // model, mfg, serial
-    pub matcher: DeviceMatcher<String>,
+    pub matcher: DeviceMatcher,
 
     pub day_brightness: f64,
     pub night_brightness: f64,
@@ -173,6 +138,7 @@ impl DeviceConfig {
             mfg: opts.manufacturer_id,
             serial: opts.serial,
         };
+        trace!("parsed matcher: {}", matcher);
 
         let day_brightness = opts.day_brightness.or(defaults.day_brightness).ok_or_else(
             || format_err!("day brightness was absent for rule that {}; it must be provided top-level or in all devices", matcher)
