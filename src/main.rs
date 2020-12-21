@@ -17,7 +17,7 @@ enum Command {
     Probe(probe::Opts),
 }
 
-#[tokio::main]
+#[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     let opts: lib::config::Config = match Command::from_args() {
         Command::Daemon(opts) => opts.config.try_into(),
