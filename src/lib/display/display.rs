@@ -29,23 +29,22 @@ impl<'a> Displays<'a> {
     /// displays to their appropriate configuration. Unmatched displays
     /// will be discarded.
     pub fn new<C: IntoIterator<Item = &'a DeviceConfig>>(cfgs: C) -> Result<Self> {
-        let (devs, unavail_devs) = ddc_i2c::I2cDeviceEnumerator::new()?
+        let raw_devs = ddc_i2c::I2cDeviceEnumerator::new()?
             .map(TryFrom::try_from)
-            .map_results(|mut i: Device| match i.try_brightness() {
-                Ok(_) => {
-                    trace!("found device {}", i);
-                    Left(i)
-                }
-                Err(e) => Right((i, e)),
-            })
-            .fold_results((vec![], vec![]), |(mut lefts, mut rights), e| {
-                match e {
-                    Left(l) => lefts.push(l),
-                    Right(r) => rights.push(r),
-                }
+            .collect::<Result<Vec<Device>>>()?;
 
-                (lefts, rights)
-            })?;
+        let mut devs = vec![];
+        let mut unavail_devs = vec![];
+
+        for mut dev in raw_devs {
+            match dev.try_brightness() {
+                Ok(_) => {
+                    trace!("found device {}", dev);
+                    devs.push(dev)
+                }
+                Err(e) => unavail_devs.push((dev, e)),
+            }
+        }
 
         if devs.len() == 0 {
             let cnt = unavail_devs.len();
