@@ -1,6 +1,6 @@
 [package]
 name = "dlux"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Billy J Rhoades II <me@brod.es>"]
 description = "dlux adjusts hardware monitor brightness to match the sunset"
 edition = "2018"
