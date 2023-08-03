@@ -115,7 +115,9 @@ async fn update_monitors_from_time<'a>(disps: &mut Displays<'a>, cfg: &Config) {
 async fn retry_monitor<'a>(disp: &mut Display<'a>, is_day: bool) -> Result<()> {
     let mut backoff = ExponentialBackoffBuilder::default()
         .factor(1.1)
-        .max(5.0)
+        .min(std::time::Duration::from_secs(0))
+        .max(std::time::Duration::from_secs(5))
+        .adaptive()
         .build()
         .unwrap();
 
@@ -126,7 +128,7 @@ async fn retry_monitor<'a>(disp: &mut Display<'a>, is_day: bool) -> Result<()> {
                 "failed to set brightness for {} on try {}: {}",
                 disp, tries, e
             );
-            let delay = backoff.wait()?;
+            let delay = backoff.fail();
             tries += 1;
             trace!(
                 "backing off {} for {}",
