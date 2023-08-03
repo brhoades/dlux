@@ -1,6 +1,6 @@
+pub use log::{debug, error, info, trace, warn};
 use serde::Deserialize;
 use structopt::StructOpt;
-pub use log::{trace, debug, info, error, warn};
 
 use clap::arg_enum;
 

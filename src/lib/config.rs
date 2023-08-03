@@ -1,7 +1,7 @@
 use std::convert::{TryFrom, TryInto};
 
 use regex::Regex;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
 use crate::{logging::*, prelude::*, types::*};
@@ -107,10 +107,15 @@ pub struct DeviceOpts {
 }
 
 impl DeviceOpts {
-    pub fn new(model: Option<Regex>, manufacturer_id: Option<Regex>, serial: Option<String>) -> DeviceOpts {
+    pub fn new(
+        model: Option<Regex>,
+        manufacturer_id: Option<Regex>,
+        serial: Option<String>,
+    ) -> DeviceOpts {
         Self {
             model,
-            manufacturer_id, serial,
+            manufacturer_id,
+            serial,
             ..Self::default()
         }
     }

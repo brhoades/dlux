@@ -117,4 +117,3 @@ impl std::fmt::Display for Device {
         write!(f, "{}", self.name)
     }
 }
-
