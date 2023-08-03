@@ -199,13 +199,13 @@ $ dlux --day-brightness 100 --night-brightness 40 --latitude 40 --longitude="-12
 $ dlux probe
 ---
 devices:
-  - model: DELL U2415
-    manufacturer_id: CFV9N98G0YDS
-    serial: DEL
+  - model: PA278CV
+    manufacturer_id: AUS
+    serial: M3LMQS362198
   - model: DELL U2720Q
-    manufacturer_id: F8KFX13
-    serial: DEL
-  - model: DELL U2415
-    manufacturer_id: CFV9N9890J5S
-    serial: DEL
+    manufacturer_id: DEL
+    serial: F8KFX13
+  - model: ASUS PB277
+    manufacturer_id: ACI
+    serial: ""
 ```
