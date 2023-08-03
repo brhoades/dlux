@@ -30,8 +30,8 @@ pub async fn run(mut opts: Opts) -> Result<()> {
 
             Ok(config::DeviceOpts::new(
                 Some(Regex::new(&escape(&edid.model))?),
-                Some(Regex::new(&escape(&edid.serial))?),
-                Some(edid.manufacturer),
+                Some(Regex::new(&escape(&edid.manufacturer))?),
+                Some(edid.serial),
             ))
         })
         .collect::<Result<Vec<_>>>()?;
