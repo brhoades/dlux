@@ -70,7 +70,7 @@ fn parse_brightness_percent<T: AsRef<str>>(input: T) -> Result<u16> {
 
 fn parse_geo_coord<T: AsRef<str>>(input: T) -> Result<f64> {
     let input = input.as_ref().parse::<f64>()?;
-    if input < -180.0 || input > 180.0 {
+    if (-180.0..=180.0).contains(&input) {
         Err(format_err!(
             "coordinate is out of range: -180 <= coord <= 180"
         ))
@@ -136,7 +136,7 @@ pub struct DeviceConfig {
 }
 
 impl DeviceConfig {
-    fn try_from_opts<'a>(opts: DeviceOpts, defaults: &BrightnessOpts) -> Result<DeviceConfig> {
+    fn try_from_opts(opts: DeviceOpts, defaults: &BrightnessOpts) -> Result<DeviceConfig> {
         let matcher = DeviceMatcher {
             model: opts.model,
             mfg: opts.manufacturer_id,

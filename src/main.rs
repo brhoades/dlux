@@ -6,11 +6,11 @@ use structopt::StructOpt;
 
 use lib::types::*;
 
+#[derive(StructOpt, Debug)]
 #[structopt(
     name = "dlux",
     about = "Dynamic hardware monitor brightness adjustment"
 )]
-#[derive(StructOpt, Debug)]
 enum Command {
     Daemon(daemon::Opts),
     Start(lib::config::Opts),

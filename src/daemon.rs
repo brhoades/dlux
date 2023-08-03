@@ -25,7 +25,7 @@ pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
     let mut alarm = Alarm::new()?;
     info!("discovered {} monitors", disps.len());
 
-    if disps.len() == 0 {
+    if disps.is_empty() {
         return Err(format_err!(
             "no displays discovered: is i2c-dev loaded and do you have access?"
         ));
@@ -44,7 +44,6 @@ pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
             )),
             next_dt.with_timezone(&Local)
         );
-        std::mem::forget(next_dt);
 
         alarm.future()?.await?;
         debug!("awake, time is now: {}", Local::now());
@@ -98,7 +97,7 @@ async fn update_monitors_from_time<'a>(disps: &mut Displays<'a>, cfg: &Config) {
         res = try_join_all(disps.iter_mut().map(|d| retry_monitor(d, is_daytime))) => match res {
             Err(e) => {
                 error!("failed to set display brightness: {}", e);
-                panic!(e);
+                panic!("{}", e);
             },
             Ok(_) => {
                 debug!("finished setting monitor brightness");
@@ -121,25 +120,21 @@ async fn retry_monitor<'a>(disp: &mut Display<'a>, is_day: bool) -> Result<()> {
         .build()
         .unwrap();
 
-    let mut tries: u64 = 1;
-    loop {
-        if let Err(e) = disp.update_brightness(is_day) {
-            debug!(
-                "failed to set brightness for {} on try {}: {}",
-                disp, tries, e
-            );
-            let delay = backoff.fail();
-            tries += 1;
-            trace!(
-                "backing off {} for {}",
-                disp,
-                humantime::format_duration(delay)
-            );
+    let mut tries: usize = 1;
+    while let Err(e) = disp.update_brightness(is_day) {
+        debug!(
+            "failed to set brightness for {} on try {}: {}",
+            disp, tries, e
+        );
+        let delay = backoff.fail();
+        tries += 1;
+        trace!(
+            "backing off {} for {}",
+            disp,
+            humantime::format_duration(delay)
+        );
 
-            sleep(delay).await;
-        } else {
-            break;
-        }
+        sleep(delay).await;
     }
 
     Ok(())
