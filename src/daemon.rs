@@ -54,11 +54,11 @@ pub async fn run(cfg: lib::config::Config) -> Result<(), Error> {
 // Tomorrow in UTC != tomorrow Local.
 fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>) -> DateTime<Utc> {
     let today = now.with_timezone(&Local);
-    let geo = get_start_stop_at_date(opts, today.date());
+    let geo = get_start_stop_at_date(opts, today.date_naive());
 
     let next = if now >= geo.1 {
         let tomorrow = today + Duration::days(1);
-        get_start_stop_at_date(opts, tomorrow.date()).0
+        get_start_stop_at_date(opts, tomorrow.date_naive()).0
     } else if now < geo.1 {
         geo.1
     } else {
@@ -67,23 +67,24 @@ fn get_next_event<T: chrono::TimeZone>(opts: &GeoOpts, now: chrono::DateTime<T>)
     next + Duration::milliseconds(100)
 }
 
-fn get_start_stop_at_date<T: chrono::TimeZone>(
+fn get_start_stop_at_date(
     geo: &GeoOpts,
-    date: chrono::Date<T>,
+    date: chrono::NaiveDate,
 ) -> (DateTime<Utc>, DateTime<Utc>) {
-    let (start, end) = sun_times::sun_times(
-        date.with_timezone(&Utc),
-        geo.latitude,
-        geo.longitude,
-        geo.altitude,
-    );
-    (start, end)
+    if let Some((start, end)) =
+        sun_times::sun_times(date, geo.latitude, geo.longitude, geo.altitude)
+    {
+        return (start, end);
+    }
+    unimplemented!(
+        "monitor brightness calculation in arctic regions or in the far future is not supported"
+    )
 }
 
 async fn update_monitors_from_time<'a>(disps: &mut Displays<'a>, cfg: &Config) {
     let now = Local::now();
     // return _today's_ sunrise and sunset times.
-    let geo = get_start_stop_at_date(&cfg.geo, now.date());
+    let geo = get_start_stop_at_date(&cfg.geo, now.date_naive());
     let is_daytime = now > geo.0 && now < geo.1;
     info!(
         "updating brightness of all displays to {} value",

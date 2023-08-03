@@ -12,26 +12,26 @@ structopt = "0.3"
 clap = { version = "2.33.3", default-features = false }
 
 serde = { version = "1.0", features = ["derive"] }
-serde_yaml = "0.8"
-serde_regex = "1.1.0"
-regex = "1.4"
+serde_yaml = "0.9"
+serde_regex = "1.1"
+regex = "1.9"
 
-tokio = { version = "0.3.6", features = ["macros", "net", "rt", "time"] }
-futures = { version = "0.3" }
+tokio = { version = "1", features = ["full"] }
+futures = "0.3"
 
-log = "0.4.0"
-env_logger = "0.8.1"
+log = "0.4"
+env_logger = "0.10"
 anyhow = "1.0"
 
 chrono = "0.4"
-sun-times = "0.1.2"
+sun-times = "0.2"
 humantime = "2.0.1"
 
-ddc-i2c = { version = "0.2.1", features = ["with-linux-enumerate"] }
-i2c-linux = "0.1.2"
-ddc = "0.2.2"
+ddc-i2c = { version = "0.2", features = ["with-linux-enumerate"] }
+i2c-linux = "0.1"
+ddc = "0.2"
 
-nix = "0.19.0"
+nix = "0.26"
 
 adaptive_backoff = "0.2"
 

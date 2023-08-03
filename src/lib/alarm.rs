@@ -7,7 +7,6 @@ use nix::sys::timerfd::{ClockId, Expiration, TimerFd, TimerFlags, TimerSetTimeFl
 use tokio::io::unix::AsyncFd;
 
 pub struct Alarm {
-    fd: TimerFd,
     afd: AsyncFd<TimerFd>,
     set: bool,
 }
@@ -19,7 +18,6 @@ impl<'a> Alarm {
     pub fn new() -> Result<Self, Error> {
         let fd = TimerFd::new(ClockId::CLOCK_BOOTTIME, TimerFlags::TFD_NONBLOCK)?;
         let t = Self {
-            fd,
             afd: AsyncFd::new(fd)?,
             set: false,
         };
@@ -53,7 +51,7 @@ impl<'a> Alarm {
             .to_std()
             .unwrap_or(std::time::Duration::new(0, 100));
 
-        self.fd.set(
+        self.afd.get_mut().set(
             Expiration::OneShot(TimeSpec::from(delay)),
             TimerSetTimeFlags::empty(),
         )?;
@@ -62,12 +60,13 @@ impl<'a> Alarm {
         Ok(())
     }
 
-    /// Creates a future that, when polled, waits until the last-set time is reached.
-    /// Will error if [set](Alarm.set.html) was never called.
+    /// Creates a future that, when polled, waits until the last-set
+    /// time is reached.  Will error if [set](Alarm.set.html) was
+    /// never called.
     ///
-    /// Since there is exactly one timer file descriptor per Alarm, only one future may
-    /// exist at a time. Once a future is polled to completion, it's safe to reset the alarm
-    /// and call it again.
+    /// Since there is exactly one timer file descriptor per Alarm,
+    /// only one future may exist at a time. Once a future is polled
+    /// to completion, it's safe to reset the alarm and call it again.
     pub fn future(&'a mut self) -> Result<FutureAlarm<'a>, Error> {
         if !self.set {
             return Err(format_err!("timer must be set before waiting"));
@@ -77,9 +76,9 @@ impl<'a> Alarm {
     }
 }
 
-/// FutureAlarm mutably borrows the alarm's file descriptor so only may exist
-/// at once. When awaited, the future will complete once the alarm's set datetime
-/// is reached.
+/// FutureAlarm mutably borrows the alarm's file descriptor to force
+/// that only one can exist at a time. When awaited, the future will
+/// complete once the alarm's set datetime is reached.
 pub struct FutureAlarm<'a> {
     afd: &'a mut AsyncFd<TimerFd>,
 }
@@ -100,9 +99,9 @@ impl std::future::Future for FutureAlarm<'_> {
     }
 }
 
-/// suspend-aware wait until date. See `man timerfd_create(2)`.
-/// This implementation leaks fds since it creates a new one and never
-/// cleans them up.
+/// suspend-aware wait until date. See `man timerfd_create(2)`. This
+/// implementation leaks fds when it creates a new one and never
+/// cleans up old ones.
 #[allow(dead_code)]
 fn wait_until<T: TimeZone>(dt: DateTime<T>) -> Result<(), Error> {
     let delay = (dt.with_timezone(&Utc) - Utc::now())
